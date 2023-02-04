@@ -51,3 +51,57 @@ plt.plot(df.index, df['demand'], label='Actual Demand')
 plt.plot(df.index[-test_size:], forecast, label='Forecasted Demand')
 plt.xlabel('Time')
 plt.ylabel('Demand')
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import statsmodels.api as sm
+from statsmodels.tsa.holtwinters import SimpleExpSmoothing, Holt, ExponentialSmoothing
+
+# Load dataset
+df = pd.read_csv("data.csv")
+
+# Plot dataset
+sns.lineplot(data=df)
+plt.show()
+
+# Split dataset into training and test sets
+split = int(len(df) * 0.7)
+train = df.iloc[:split, :]
+test = df.iloc[split:, :]
+
+# Initialize Holt Winters Model
+model = ExponentialSmoothing(train["value"], trend="add", seasonal="multiplicative", seasonal_periods=12)
+
+# Hyperparameter tuning
+best_params = None
+best_aic = float("inf")
+for alpha in np.arange(0, 1, 0.1):
+    for beta in np.arange(0, 1, 0.1):
+        for gamma in np.arange(0, 1, 0.1):
+            try:
+                model = ExponentialSmoothing(train["value"], trend="add", seasonal="multiplicative", seasonal_periods=12, 
+                                            damped=False, smoothing_level=alpha, smoothing_slope=beta, 
+                                            smoothing_seasonal=gamma)
+                fit = model.fit()
+                if fit.aic < best_aic:
+                    best_aic = fit.aic
+                    best_params = (alpha, beta, gamma)
+            except:
+                pass
+
+# Fit model with best hyperparameters
+model = ExponentialSmoothing(train["value"], trend="add", seasonal="multiplicative", seasonal_periods=12, 
+                            damped=False, smoothing_level=best_params[0], smoothing_slope=best_params[1], 
+                            smoothing_seasonal=best_params[2])
+fit = model.fit()
+
+# Plot forecast
+forecast = fit.forecast(len(test))
+plt.plot(train["value"], label="Train")
+plt.plot(test["value"], label="Test")
+plt.plot(forecast, label="Forecast")
+plt.legend()
+plt.show()
